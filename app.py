@@ -92,6 +92,8 @@ def index():
     
     except ClientError as e:
         flash(f'Error listing files: {str(e)}', 'error')
+    except Exception as e:
+        flash(f'Unable to connect to storage. Please check your configuration: {str(e)}', 'error')
     
     return render_template('index.html', files=files)
 
@@ -130,6 +132,8 @@ def upload():
     
     except ClientError as e:
         flash(f'Error uploading file: {str(e)}', 'error')
+    except Exception as e:
+        flash(f'Unable to upload file. Please check your configuration: {str(e)}', 'error')
     
     return redirect(url_for('index'))
 
@@ -155,6 +159,9 @@ def download(filename):
     
     except ClientError as e:
         flash(f'Error downloading file: {str(e)}', 'error')
+        return redirect(url_for('index'))
+    except Exception as e:
+        flash(f'Unable to download file. Please check your configuration: {str(e)}', 'error')
         return redirect(url_for('index'))
 
 
