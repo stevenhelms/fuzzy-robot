@@ -137,7 +137,7 @@
                     {{ file.name }}
                 </td>
                 <td class="file-size">{{ "%.2f"|format(file.size / 1024) }} KB</td>
-                <td>{{ file.last_modified }}</td>
+                <td>{{ file.last_modified_str }}</td>
                 <td>
                     <a href="{{ url_for('download', filename=file.name) }}" class="download-link">Download</a>
                 </td>

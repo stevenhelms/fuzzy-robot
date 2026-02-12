@@ -12,7 +12,18 @@ import io
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+
+# Require SECRET_KEY in production
+secret_key = os.getenv('SECRET_KEY')
+if not secret_key:
+    # Only use default in development
+    if os.getenv('FLASK_ENV') == 'development':
+        secret_key = 'dev-secret-key-change-in-production'
+        print('WARNING: Using default secret key. Set SECRET_KEY environment variable in production!')
+    else:
+        raise ValueError('SECRET_KEY environment variable must be set in production')
+
+app.secret_key = secret_key
 
 # Configuration
 AUTH_USERNAME = os.getenv('AUTH_USERNAME', 'admin')
@@ -84,10 +95,11 @@ def index():
                 files.append({
                     'name': obj['Key'],
                     'size': obj['Size'],
-                    'last_modified': obj['LastModified'].strftime('%Y-%m-%d %H:%M:%S')
+                    'last_modified': obj['LastModified'],
+                    'last_modified_str': obj['LastModified'].strftime('%Y-%m-%d %H:%M:%S')
                 })
             
-            # Sort by last modified, newest first
+            # Sort by last modified datetime object, newest first
             files.sort(key=lambda x: x['last_modified'], reverse=True)
     
     except ClientError as e:
@@ -143,8 +155,11 @@ def upload():
 def download(filename):
     """Handle file download"""
     try:
+        # Sanitize filename to prevent path traversal attacks
+        safe_filename = secure_filename(filename)
+        
         # Get file from Digital Ocean Spaces
-        file_obj = s3_client.get_object(Bucket=SPACES_BUCKET, Key=filename)
+        file_obj = s3_client.get_object(Bucket=SPACES_BUCKET, Key=safe_filename)
         file_data = file_obj['Body'].read()
         
         # Create a BytesIO object
@@ -153,7 +168,7 @@ def download(filename):
         return send_file(
             file_stream,
             as_attachment=True,
-            download_name=filename,
+            download_name=safe_filename,
             mimetype='application/pdf'
         )
     
@@ -166,4 +181,6 @@ def download(filename):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Use debug mode from environment variable, default to False for safety
+    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 't')
+    app.run(debug=debug_mode, host='0.0.0.0', port=5000)
