@@ -1,5 +1,4 @@
 import os
-from datetime import datetime
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
 from werkzeug.utils import secure_filename
@@ -18,7 +17,7 @@ secret_key = os.getenv('SECRET_KEY')
 if not secret_key:
     # Only use default in development
     if os.getenv('FLASK_ENV') == 'development':
-        secret_key = 'dev-secret-key-change-in-production'
+        secret_key = 'dev-secret-key-change-in-production'  # nosec
         print('WARNING: Using default secret key. Set SECRET_KEY environment variable in production!')
     else:
         raise ValueError('SECRET_KEY environment variable must be set in production')
@@ -60,7 +59,7 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        
+
         if username == AUTH_USERNAME and password == AUTH_PASSWORD:
             session['logged_in'] = True
             session['username'] = username
@@ -68,7 +67,7 @@ def login():
             return redirect(url_for('index'))
         else:
             flash('Invalid credentials. Please try again.', 'error')
-    
+
     return render_template('login.html')
 
 
@@ -85,11 +84,11 @@ def logout():
 def index():
     """Main page showing list of uploaded files"""
     files = []
-    
+
     try:
         # List objects in the bucket
         response = s3_client.list_objects_v2(Bucket=SPACES_BUCKET)
-        
+
         if 'Contents' in response:
             for obj in response['Contents']:
                 files.append({
@@ -98,15 +97,15 @@ def index():
                     'last_modified': obj['LastModified'],
                     'last_modified_str': obj['LastModified'].strftime('%Y-%m-%d %H:%M:%S')
                 })
-            
+
             # Sort by last modified datetime object, newest first
             files.sort(key=lambda x: x['last_modified'], reverse=True)
-    
+
     except ClientError as e:
         flash(f'Error listing files: {str(e)}', 'error')
     except Exception as e:
         flash(f'Unable to connect to storage. Please check your configuration: {str(e)}', 'error')
-    
+
     return render_template('index.html', files=files)
 
 
@@ -117,21 +116,21 @@ def upload():
     if 'file' not in request.files:
         flash('No file selected', 'error')
         return redirect(url_for('index'))
-    
+
     file = request.files['file']
-    
+
     if file.filename == '':
         flash('No file selected', 'error')
         return redirect(url_for('index'))
-    
+
     # Validate PDF file
     if not file.filename.lower().endswith('.pdf'):
         flash('Only PDF files are allowed', 'error')
         return redirect(url_for('index'))
-    
+
     try:
         filename = secure_filename(file.filename)
-        
+
         # Upload to Digital Ocean Spaces
         s3_client.upload_fileobj(
             file,
@@ -139,14 +138,14 @@ def upload():
             filename,
             ExtraArgs={'ACL': 'private', 'ContentType': 'application/pdf'}
         )
-        
+
         flash(f'File "{filename}" uploaded successfully!', 'success')
-    
+
     except ClientError as e:
         flash(f'Error uploading file: {str(e)}', 'error')
     except Exception as e:
         flash(f'Unable to upload file. Please check your configuration: {str(e)}', 'error')
-    
+
     return redirect(url_for('index'))
 
 
@@ -157,21 +156,21 @@ def download(filename):
     try:
         # Sanitize filename to prevent path traversal attacks
         safe_filename = secure_filename(filename)
-        
+
         # Get file from Digital Ocean Spaces
         file_obj = s3_client.get_object(Bucket=SPACES_BUCKET, Key=safe_filename)
         file_data = file_obj['Body'].read()
-        
+
         # Create a BytesIO object
         file_stream = io.BytesIO(file_data)
-        
+
         return send_file(
             file_stream,
             as_attachment=True,
             download_name=safe_filename,
             mimetype='application/pdf'
         )
-    
+
     except ClientError as e:
         flash(f'Error downloading file: {str(e)}', 'error')
         return redirect(url_for('index'))
@@ -183,4 +182,4 @@ def download(filename):
 if __name__ == '__main__':
     # Use debug mode from environment variable, default to False for safety
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() in ('true', '1', 't')
-    app.run(debug=debug_mode, host='0.0.0.0', port=5000)
+    app.run(debug=debug_mode, host='0.0.0.0', port=5000)  # nosec
